@@ -32,13 +32,13 @@ DWORD scanCodeExt2R = SCANCODE_ANY_ALT_KEY;
 bool capsLockAsShiftLock = false;
 bool swapLeftCtrlAndLeftAlt = false;
 bool swapLeftCtrlLeftAltAndLeftWin = false;
-bool capsLockKeyAsBackspace = true;
+bool capsLockKeyAsEscape = true;
 bool ext1RAsReturn = true;
 bool ext2LAsTab = true;
 
 bool bypassMode = false;
 
-bool sendBackspace = false;
+bool sendEscape = false;
 bool sendReturn = false;
 bool sendTab = false;
 
@@ -616,11 +616,11 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		else
 		{ // scanCodeExt1L (CapsLock)
 			mods.ext1l = false;
-			if (capsLockKeyAsBackspace && sendBackspace)
+			if (capsLockKeyAsEscape && sendEscape)
 			{
 				sendUp(VK_CAPITAL, 58, false);
-				sendDownUp(VK_BACK, 30, true);
-				sendBackspace = false;
+				sendDownUp(VK_ESCAPE, 1, true);
+				sendEscape = false;
 			}
 		}
 	}
@@ -636,8 +636,8 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		else
 		{
 			mods.ext1l = true;
-			if (capsLockKeyAsBackspace)
-				sendBackspace = true;
+			if (capsLockKeyAsEscape)
+				sendEscape = true;
 		}
 	}
 }
@@ -803,7 +803,7 @@ __declspec(dllexport)
 		printf("\n");
 		logKeyEvent("key down", keyInfo);
 
-		sendBackspace = false;
+		sendEscape = false;
 		sendReturn = false;
 		sendTab = false;
 
