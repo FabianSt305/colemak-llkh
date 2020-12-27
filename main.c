@@ -639,29 +639,29 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		if (keyInfo.scanCode == scanCodeExt1R)
 		{
 			modState.ext1r = false;
-			modState.ext1 = modState.ext1l | modState.ext1r;
+			modState.ext1 = modState.ext1l || modState.ext1r;
 			if (ext1RAsReturn && sendReturn)
 			{
-				sendUp(keyInfo.vkCode, keyInfo.scanCode, false); // release Ext1_R
-				sendDownUp(VK_RETURN, 28, true);				 // send Return
+				sendUp(keyInfo.vkCode, keyInfo.scanCode, false);
+				sendDownUp(VK_RETURN, 28, true);
 				sendReturn = false;
 			}
 		}
 		else
 		{ // scanCodeExt1L (CapsLock)
 			modState.ext1l = false;
-			modState.ext1 = modState.ext1l | modState.ext1r;
+			modState.ext1 = modState.ext1l || modState.ext1r;
 			if (capsLockAsBackspace && sendBackspace)
 			{
-				sendUp(VK_CAPITAL, 58, false); // release Ext1_R
-				sendDownUp(VK_BACK, 30, true); // send Backspace
+				sendUp(VK_CAPITAL, 58, false);
+				sendDownUp(VK_BACK, 30, true);
 				sendBackspace = false;
 			}
 		}
 	}
 
 	else
-	{ // keyDown
+	{
 		if (keyInfo.scanCode == scanCodeExt1R)
 		{
 			modState.ext1r = true;
@@ -669,12 +669,12 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 				sendReturn = true;
 		}
 		else
-		{ // VK_CAPITAL (CapsLock)
+		{
 			modState.ext1l = true;
 			if (capsLockAsBackspace)
 				sendBackspace = true;
 		}
-		modState.ext1 = modState.ext1l | modState.ext1r;
+		modState.ext1 = modState.ext1l || modState.ext1r;
 	}
 }
 
@@ -695,7 +695,7 @@ void handleExt2Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 				sendUp(keyInfo.vkCode, keyInfo.scanCode, false); // release Ext2_L
 				sendDownUp(VK_TAB, 15, true);					 // send Tab
 				sendTab = false;
-				modState.ext2 = modState.ext2l | modState.ext2r;
+				modState.ext2 = modState.ext2l || modState.ext2r;
 				return;
 			}
 		}
@@ -708,7 +708,7 @@ void handleExt2Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 				printf("Ext2 lock %s!\n", ext2LockActive ? "activated" : "deactivated");
 			}
 		}
-		modState.ext2 = modState.ext2l | modState.ext2r;
+		modState.ext2 = modState.ext2l || modState.ext2r;
 	}
 
 	else
@@ -724,7 +724,7 @@ void handleExt2Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 			modState.ext2r = true;
 			sendUp(VK_RMENU, 56, false);
 		}
-		modState.ext2 = modState.ext2l | modState.ext2r;
+		modState.ext2 = modState.ext2l || modState.ext2r;
 	}
 }
 
