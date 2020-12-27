@@ -10,9 +10,9 @@ ifdef DEBUG
 	LDFLAGS:=$(filter-out -mwindows, $(LDFLAGS))
 endif
 
-all: colemak-llkh.exe
+all: colemak.exe
 
-colemak-llkh.exe: $(OBJECTS)
+colemak.exe: $(OBJECTS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 %.o: %.rc
