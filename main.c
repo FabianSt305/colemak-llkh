@@ -24,7 +24,7 @@ HHOOK keyhook = NULL;
 #define SCANCODE_RETURN_KEY 28
 #define SCANCODE_ANY_ALT_KEY 56
 
-bool debugWindow = true;
+bool debugWindow = false;
 bool quoteAsMod3R = false;
 bool returnAsMod3R = true;
 bool tabAsMod4L = true;
@@ -109,15 +109,12 @@ void SetStdOutToNewConsole()
 
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 {
-	switch (fdwCtrlType) {
-
-		case CTRL_C_EVENT:
-			printf("\nCtrl-c detected!\n");
-			printf("Please quit by using the tray icon!\n\n");
-			return TRUE;
-
-		default:
-			return FALSE;
+	if (fdwCtrlType == CTRL_C_EVENT){
+		printf("\nCtrl-c detected!\n");
+		printf("Please quit by using the tray icon!\n\n");
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -177,7 +174,7 @@ void initLayout()
 	mappingTable[0][69] = VK_TAB; // NumLock key → tabulator
 
 	wcscpy(mappingTable[1] + 41, L"̌");  // key to the left of the "1" key
-	wcscpy(mappingTable[1] +  2, L"°§ℓ»«$€„“”—̧");
+	wcscpy(mappingTable[1] +  2, L"!@#$%^&*()_+");
 	wcscpy(mappingTable[1] + 71, L"✔✘†-♣€‣+♦♥♠␣."); // numeric keypad
 	mappingTable[1][69] = VK_TAB; // NumLock key → tabulator
 
@@ -299,10 +296,6 @@ void sendUnicodeChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 	SendInput(1, &Input, sizeof(Input));
 }
 
-/**
- * Sends a char using emulated keyboard input
- * This works for most cases, but not for dead keys etc
- **/
 void sendChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 {
 	SHORT keyScanResult = VkKeyScanEx(key, GetKeyboardLayout(0));
@@ -402,10 +395,8 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 
 				return true;
 			}
-	
-		default:
-			return false;
 	}
+	return false;
 }
 
 bool isShift(KBDLLHOOKSTRUCT keyInfo)
@@ -424,7 +415,8 @@ bool isMod3(KBDLLHOOKSTRUCT keyInfo)
 bool isMod4(KBDLLHOOKSTRUCT keyInfo)
 {
 	return keyInfo.scanCode == scanCodeMod4L
-	    || keyInfo.vkCode == VK_RMENU;
+		|| keyInfo.scanCode == 541
+	    || keyInfo.scanCode == scanCodeMod4R;
 }
 
 bool isSystemKeyPressed()
@@ -675,19 +667,12 @@ void handleMod4Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp) {
 				level4modLeftAndNoOtherKeyPressed = !(level4modRightPressed || level3modLeftPressed || level3modRightPressed);
 		} else { // scanCodeMod4R
 			level4modRightPressed = true;
-			/* ALTGR triggers two keys: LCONTROL and RMENU
-					we don't want to have any of those two here effective but return -1 seems
-					to change nothing, so we simply send keyup here.  */
 			sendUp(VK_RMENU, 56, false);
 		}
 		modState.mod4 = level4modLeftPressed | level4modRightPressed;
 	}
 }
 
-/**
- * updates system key and layerLock states; writes key
- * returns `true` if next hook should be called, `false` otherwise
- **/
 bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 {
 	bool continueExecution = handleSystemKey(keyInfo, isKeyUp);
