@@ -10,7 +10,7 @@
 
 typedef struct ModState
 {
-	bool shift, ext1, ext2, lshift, rshift, lctrl, rctrl, lwin, rwin, lalt, ralt, ext1l, ext1r, ext2l, ext2r;
+	bool shiftLock, capsLock, ext1Lock, ext2Lock, lshift, rshift, lctrl, rctrl, lwin, rwin, lalt, ralt, ext1l, ext1r, ext2l, ext2r;
 } ModState;
 
 HHOOK keyhook = NULL;
@@ -18,42 +18,31 @@ HHOOK keyhook = NULL;
 #define LEN 103
 #define SCANCODE_TAB_KEY 15
 #define SCANCODE_CAPSLOCK_KEY 58
-#define SCANCODE_LOWER_THAN_KEY 86
+#define SCANCODE_ISO_EXTRA_KEY 86
 #define SCANCODE_QUOTE_KEY 40
-#define SCANCODE_HASH_KEY 43
+#define SCANCODE_ANSI_BACKSLASH_KEY 43
 #define SCANCODE_RETURN_KEY 28
 #define SCANCODE_ANY_ALT_KEY 56
 
 bool debugWindow = false;
-bool quoteAsExt1R = false;
-bool returnAsExt1R = true;
-bool tabAsExt2L = true;
 DWORD scanCodeExt1L = SCANCODE_CAPSLOCK_KEY;
-DWORD scanCodeExt1R = SCANCODE_HASH_KEY;
-DWORD scanCodeExt2L = SCANCODE_LOWER_THAN_KEY;
+DWORD scanCodeExt1R = SCANCODE_RETURN_KEY;
+DWORD scanCodeExt2L = SCANCODE_TAB_KEY;
 DWORD scanCodeExt2R = SCANCODE_ANY_ALT_KEY;
-bool capsLockEnabled = true;
-bool shiftLockEnabled = false;
-bool ext2LockEnabled = false;
+bool capsLockAsShiftLock = false;
 bool swapLeftCtrlAndLeftAlt = false;
 bool swapLeftCtrlLeftAltAndLeftWin = false;
-bool capsLockAsBackspace = true;
+bool capsLockKeyAsBackspace = true;
 bool ext1RAsReturn = true;
 bool ext2LAsTab = true;
 
-
-
 bool bypassMode = false;
-
-bool shiftLockActive = false;
-bool capsLockActive = false;
-bool ext2LockActive = false;
 
 bool sendBackspace = false;
 bool sendReturn = false;
 bool sendTab = false;
 
-ModState modState = {false};
+ModState mods = {false};
 TCHAR mappingTable[6][LEN] = {0};
 CHAR mappingTableExt2Special[LEN] = {0};
 TCHAR numpadSlashKey[7];
@@ -62,11 +51,11 @@ unsigned getLevel()
 {
 	unsigned level = 0;
 
-	if (modState.shift != shiftLockActive)
+	if ((mods.lshift || mods.rshift) ^ mods.shiftLock)
 		level = 1;
-	if (modState.ext1)
+	if ((mods.ext1l || mods.ext1r) ^ mods.ext1Lock)
 		level = (level == 1) ? 4 : 2;
-	if (modState.ext2 != ext2LockActive)
+	if ((mods.ext2l || mods.ext2r) ^ mods.ext2Lock)
 		level = (level == 2) ? 5 : 3;
 
 	return level;
@@ -223,17 +212,6 @@ void initLayout()
 	wcscpy(mappingTable[5] + 55, L"⊗");			   // *-key on numeric keypad
 	wcscpy(mappingTable[5] + 69, L"≡");			   // num-lock-key
 
-	// if quote/ä is the right level 3 modifier, copy symbol of quote/ä key to backslash/# key
-	if (quoteAsExt1R)
-	{
-		mappingTable[0][43] = mappingTable[0][40];
-		mappingTable[1][43] = mappingTable[1][40];
-		mappingTable[2][43] = mappingTable[2][40];
-		mappingTable[3][43] = mappingTable[3][40];
-		mappingTable[4][43] = mappingTable[4][40];
-		mappingTable[5][43] = mappingTable[5][40];
-	}
-
 	mappingTable[1][8] = 0x20AC; // €
 
 	// ext2 special cases
@@ -295,7 +273,7 @@ void sendChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 {
 	SHORT keyScanResult = VkKeyScanEx(key, GetKeyboardLayout(0));
 
-	if (keyScanResult == -1 || shiftLockActive || capsLockActive || ext2LockActive || (keyInfo.vkCode >= 0x30 && keyInfo.vkCode <= 0x39))
+	if (keyScanResult == -1 || mods.shiftLock || mods.capsLock || mods.ext2Lock || (keyInfo.vkCode >= 0x30 && keyInfo.vkCode <= 0x39))
 	{
 		sendUnicodeChar(key, keyInfo);
 	}
@@ -414,7 +392,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 
 bool isShift(KBDLLHOOKSTRUCT keyInfo)
 {
-	return keyInfo.vkCode == VK_SHIFT || keyInfo.vkCode == VK_LSHIFT || keyInfo.vkCode == VK_RSHIFT;
+	return keyInfo.vkCode == VK_SHIFT || keyInfo.vkCode == VK_LSHIFT || keyInfo.vkCode == VK_RSHIFT || keyInfo.scanCode == SCANCODE_ISO_EXTRA_KEY;
 }
 
 bool isExt1(KBDLLHOOKSTRUCT keyInfo)
@@ -429,7 +407,7 @@ bool isExt2(KBDLLHOOKSTRUCT keyInfo)
 
 bool isSystemKeyPressed()
 {
-	return modState.lctrl || modState.rctrl || modState.lalt || modState.lwin || modState.rwin;
+	return mods.lctrl || mods.rctrl || mods.lalt || mods.lwin || mods.rwin;
 }
 
 bool isLetter(TCHAR key)
@@ -439,16 +417,18 @@ bool isLetter(TCHAR key)
 			|| key == L'ä' || key == L'ö' || key == L'ü' || key == L'ß' || key == L'Ä' || key == L'Ö' || key == L'Ü' || key == L'ẞ');
 }
 
-void toggleShiftLock()
+void toggleShiftCapsLock()
 {
-	shiftLockActive = !shiftLockActive;
-	printf("Shift lock %s!\n", shiftLockActive ? "activated" : "deactivated");
-}
-
-void toggleCapsLock()
-{
-	capsLockActive = !capsLockActive;
-	printf("Caps lock %s!\n", capsLockActive ? "activated" : "deactivated");
+	if (capsLockAsShiftLock)
+	{
+		mods.shiftLock = !mods.shiftLock;
+		printf("Shift lock %s!\n", mods.shiftLock ? "activated" : "deactivated");
+	}
+	else
+	{
+		mods.capsLock = !mods.capsLock;
+		printf("Caps lock %s!\n", mods.capsLock ? "activated" : "deactivated");
+	}
 }
 
 void logKeyEvent(char *desc, KBDLLHOOKSTRUCT keyInfo)
@@ -469,11 +449,8 @@ void logKeyEvent(char *desc, KBDLLHOOKSTRUCT keyInfo)
 	case VK_CAPITAL:
 		keyName = "(M3 left)";
 		break;
-	case 0xde: // ä
-		keyName = quoteAsExt1R ? "(M3 right)" : "";
-		break;
-	case 0xbf: // #
-		keyName = quoteAsExt1R ? "" : "(M3 right)";
+	case 0xbf:
+		keyName = "(M3 right)";
 		break;
 	case VK_OEM_102:
 		keyName = "(M4 left [<])";
@@ -514,9 +491,9 @@ void logKeyEvent(char *desc, KBDLLHOOKSTRUCT keyInfo)
 	default:
 		keyName = "";
 	}
-	char *shiftLockCapsLockInfo = shiftLockActive ? " [shift lock active]"
-												  : (capsLockActive ? " [caps lock active]" : "");
-	char *ext2LockInfo = ext2LockActive ? " [ext2 lock active]" : "";
+	char *shiftLockCapsLockInfo = mods.shiftLock ? " [shift lock active]"
+												 : (mods.capsLock ? " [caps lock active]" : "");
+	char *ext2LockInfo = mods.ext2Lock ? " [ext2 lock active]" : "";
 	char *vkPacket = (desc == "injected" && keyInfo.vkCode == VK_PACKET) ? " (VK_PACKET)" : "";
 	printf(
 		"%-13s | sc:%03u vk:0x%02X flags:0x%02X extra:%d %s%s%s%s\n",
@@ -526,33 +503,23 @@ void logKeyEvent(char *desc, KBDLLHOOKSTRUCT keyInfo)
 
 boolean handleShiftKey(KBDLLHOOKSTRUCT keyInfo, WPARAM wparam, bool ignoreShiftCapsLock)
 {
-	bool *pressedShift = keyInfo.vkCode == VK_RSHIFT ? &modState.rshift : &modState.lshift;
-	bool *otherShift = keyInfo.vkCode == VK_RSHIFT ? &modState.lshift : &modState.rshift;
+	bool *pressedShift = keyInfo.vkCode == VK_RSHIFT ? &mods.rshift : &mods.lshift;
+	bool *otherShift = keyInfo.vkCode == VK_RSHIFT ? &mods.lshift : &mods.rshift;
 
 	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
 	{
-		modState.shift = false;
 		*pressedShift = false;
 
 		if (*otherShift && !ignoreShiftCapsLock)
 		{
-			if (shiftLockEnabled)
-			{
-				sendDownUp(VK_CAPITAL, 58, false);
-				toggleShiftLock();
-			}
-			else if (capsLockEnabled)
-			{
-				sendDownUp(VK_CAPITAL, 58, false);
-				toggleCapsLock();
-			}
+			sendDownUp(VK_CAPITAL, 58, false);
+			toggleShiftCapsLock();
 		}
 		sendUp(keyInfo.vkCode, keyInfo.scanCode, false);
 		return false;
 	}
 	else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
 	{
-		modState.shift = true;
 		*pressedShift = true;
 		sendDown(keyInfo.vkCode, keyInfo.scanCode, false);
 		return false;
@@ -574,36 +541,36 @@ boolean handleSystemKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 	{
 		if (swapLeftCtrlAndLeftAlt)
 		{
-			modState.lalt = newStateValue;
+			mods.lalt = newStateValue;
 			keybd_event(VK_LMENU, 56, dwFlags, 0);
 		}
 		else if (swapLeftCtrlLeftAltAndLeftWin)
 		{
-			modState.lwin = newStateValue;
+			mods.lwin = newStateValue;
 			keybd_event(VK_LWIN, 91, dwFlags, 0);
 		}
 		else
 		{
-			modState.lctrl = newStateValue;
+			mods.lctrl = newStateValue;
 			keybd_event(VK_LCONTROL, 29, dwFlags, 0);
 		}
 		return false;
 	}
 	else if (keyInfo.vkCode == VK_RCONTROL)
 	{
-		modState.rctrl = newStateValue;
+		mods.rctrl = newStateValue;
 		keybd_event(VK_RCONTROL, 29, dwFlags, 0);
 	}
 	else if (keyInfo.vkCode == VK_LMENU)
 	{
 		if (swapLeftCtrlAndLeftAlt || swapLeftCtrlLeftAltAndLeftWin)
 		{
-			modState.lctrl = newStateValue;
+			mods.lctrl = newStateValue;
 			keybd_event(VK_LCONTROL, 29, dwFlags, 0);
 		}
 		else
 		{
-			modState.lalt = newStateValue;
+			mods.lalt = newStateValue;
 			keybd_event(VK_LMENU, 56, dwFlags, 0);
 		}
 		return false;
@@ -612,19 +579,19 @@ boolean handleSystemKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 	{
 		if (swapLeftCtrlLeftAltAndLeftWin)
 		{
-			modState.lalt = newStateValue;
+			mods.lalt = newStateValue;
 			keybd_event(VK_LMENU, 56, dwFlags, 0);
 		}
 		else
 		{
-			modState.lwin = newStateValue;
+			mods.lwin = newStateValue;
 			keybd_event(VK_LWIN, 91, dwFlags, 0);
 		}
 		return false;
 	}
 	else if (keyInfo.vkCode == VK_RWIN)
 	{
-		modState.rwin = newStateValue;
+		mods.rwin = newStateValue;
 		keybd_event(VK_RWIN, 92, dwFlags, 0);
 		return false;
 	}
@@ -638,9 +605,8 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 	{
 		if (keyInfo.scanCode == scanCodeExt1R)
 		{
-			modState.ext1r = false;
-			modState.ext1 = modState.ext1l || modState.ext1r;
-			if (ext1RAsReturn && sendReturn)
+			mods.ext1r = false;
+			if (sendReturn)
 			{
 				sendUp(keyInfo.vkCode, keyInfo.scanCode, false);
 				sendDownUp(VK_RETURN, 28, true);
@@ -649,9 +615,8 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		}
 		else
 		{ // scanCodeExt1L (CapsLock)
-			modState.ext1l = false;
-			modState.ext1 = modState.ext1l || modState.ext1r;
-			if (capsLockAsBackspace && sendBackspace)
+			mods.ext1l = false;
+			if (capsLockKeyAsBackspace && sendBackspace)
 			{
 				sendUp(VK_CAPITAL, 58, false);
 				sendDownUp(VK_BACK, 30, true);
@@ -664,17 +629,16 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 	{
 		if (keyInfo.scanCode == scanCodeExt1R)
 		{
-			modState.ext1r = true;
+			mods.ext1r = true;
 			if (ext1RAsReturn)
 				sendReturn = true;
 		}
 		else
 		{
-			modState.ext1l = true;
-			if (capsLockAsBackspace)
+			mods.ext1l = true;
+			if (capsLockKeyAsBackspace)
 				sendBackspace = true;
 		}
-		modState.ext1 = modState.ext1l || modState.ext1r;
 	}
 }
 
@@ -684,47 +648,44 @@ void handleExt2Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 	{
 		if (keyInfo.scanCode == scanCodeExt2L)
 		{
-			modState.ext2l = false;
-			if (modState.ext2r && ext2LockEnabled)
+			mods.ext2l = false;
+			if (mods.ext2r)
 			{
-				ext2LockActive = !ext2LockActive;
-				printf("Ext2 lock %s!\n", ext2LockActive ? "activated" : "deactivated");
+				mods.ext2Lock = !mods.ext2Lock;
+				printf("Ext2 lock %s!\n", mods.ext2Lock ? "activated" : "deactivated");
 			}
 			else if (ext2LAsTab && sendTab)
 			{
 				sendUp(keyInfo.vkCode, keyInfo.scanCode, false); // release Ext2_L
 				sendDownUp(VK_TAB, 15, true);					 // send Tab
 				sendTab = false;
-				modState.ext2 = modState.ext2l || modState.ext2r;
 				return;
 			}
 		}
 		else
 		{ // scanCodeExt2R
-			modState.ext2r = false;
-			if (modState.ext2l && ext2LockEnabled)
+			mods.ext2r = false;
+			if (mods.ext2l)
 			{
-				ext2LockActive = !ext2LockActive;
-				printf("Ext2 lock %s!\n", ext2LockActive ? "activated" : "deactivated");
+				mods.ext2Lock = !mods.ext2Lock;
+				printf("Ext2 lock %s!\n", mods.ext2Lock ? "activated" : "deactivated");
 			}
 		}
-		modState.ext2 = modState.ext2l || modState.ext2r;
 	}
 
 	else
 	{ // keyDown
 		if (keyInfo.scanCode == scanCodeExt2L)
 		{
-			modState.ext2l = true;
+			mods.ext2l = true;
 			if (ext2LAsTab)
-				sendTab = !(modState.ext2r || modState.ext1l || modState.ext1r);
+				sendTab = !(mods.ext2r || mods.ext1l || mods.ext1r);
 		}
 		else
 		{ // scanCodeExt2R
-			modState.ext2r = true;
+			mods.ext2r = true;
 			sendUp(VK_RMENU, 56, false);
 		}
-		modState.ext2 = modState.ext2l || modState.ext2r;
 	}
 }
 
@@ -772,7 +733,7 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		{
 			key = mappingTable[level][keyInfo.scanCode];
 		}
-		if (capsLockActive && (level == 0 || level == 1) && isLetter(key))
+		if (mods.capsLock && (level == 0 || level == 1) && isLetter(key))
 		{
 			key = mappingTable[level == 0 ? 1 : 0][keyInfo.scanCode];
 		}
@@ -814,7 +775,7 @@ __declspec(dllexport)
 	}
 
 	// Shift + Pause
-	if (code == HC_ACTION && wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && modState.shift)
+	if (code == HC_ACTION && wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && (mods.lshift || mods.rshift))
 	{
 		toggleBypassMode();
 		return -1;
@@ -824,15 +785,7 @@ __declspec(dllexport)
 	{
 		if (code == HC_ACTION && keyInfo.vkCode == VK_CAPITAL && !(keyInfo.flags & LLKHF_UP))
 		{
-			// synchronize with capsLock state during bypass
-			if (shiftLockEnabled)
-			{
-				toggleShiftLock();
-			}
-			else if (capsLockEnabled)
-			{
-				toggleCapsLock();
-			}
+			toggleShiftCapsLock();
 		}
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
@@ -902,23 +855,12 @@ bool fileExists(LPCSTR szPath)
 
 int main(int argc, char *argv[])
 {
-	if (capsLockEnabled)
-		shiftLockEnabled = false;
-
 	if (swapLeftCtrlLeftAltAndLeftWin)
 		swapLeftCtrlAndLeftAlt = false;
 
 	if (debugWindow)
 		// Open Console Window to see printf output
 		SetStdOutToNewConsole();
-
-	if (quoteAsExt1R)
-		scanCodeExt1R = SCANCODE_QUOTE_KEY;
-	else if (returnAsExt1R)
-		scanCodeExt1R = SCANCODE_RETURN_KEY;
-
-	if (tabAsExt2L)
-		scanCodeExt2L = SCANCODE_TAB_KEY;
 
 	if (swapLeftCtrlAndLeftAlt || swapLeftCtrlLeftAltAndLeftWin)
 		SetConsoleCtrlHandler(CtrlHandler, TRUE);
