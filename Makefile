@@ -10,13 +10,13 @@ ifdef DEBUG
 	LDFLAGS:=$(filter-out -mwindows, $(LDFLAGS))
 endif
 
-all: neo-llkh.exe
+all: colemak-llkh.exe
 
-neo-llkh.exe: $(OBJECTS)
+colemak-llkh.exe: $(OBJECTS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 %.o: %.rc
 	$(WINDRES) -i $^ -o $@
 
 clean:
-	@rm -f $(OBJECTS) neo-llkh.exe
+	@rm -f $(OBJECTS) colemak.exe
