@@ -726,7 +726,7 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		{
 			key = mappingTable[level][keyInfo.scanCode];
 		}
-		
+
 		if (mods.capsLock && (level == 0 || level == 1) && isLetter(key))
 		{
 			key = mappingTable[level == 0 ? 1 : 0][keyInfo.scanCode];
@@ -771,7 +771,8 @@ __declspec(dllexport)
 		{
 			handleShiftKey(keyInfo, false, bypassMode);
 		}
-		else {
+		else
+		{
 			return -1;
 		}
 	}
