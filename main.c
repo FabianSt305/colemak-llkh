@@ -32,7 +32,7 @@ DWORD scanCodeExt2R = SCANCODE_ANY_ALT_KEY;
 bool capsLockAsShiftLock = false;
 bool swapLeftCtrlAndLeftAlt = false;
 bool swapLeftCtrlLeftAltAndLeftWin = false;
-bool capsLockKeyAsEscape = true;
+bool ext1LAsEscape = true;
 bool ext1RAsReturn = true;
 bool ext2LAsTab = true;
 
@@ -97,23 +97,20 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 	}
 }
 
-void mapLevels_2_5_6(TCHAR *mappingTableOutput, TCHAR *newChars, TCHAR *src)
+void mapRelative(TCHAR *dest, TCHAR *src, TCHAR *rel)
 {
 	TCHAR *ptr;
 	for (int i = 0; i < LEN; i++)
 	{
-		ptr = wcschr(src, mappingTable[0][i]);
-		if (ptr != NULL && ptr < &src[32])
-		{
-			mappingTableOutput[i] = newChars[ptr - src];
-		}
+		ptr = wcschr(rel, mappingTable[0][i]);
+		if (ptr != NULL && ptr < &rel[32])
+			dest[i] = src[ptr - rel];
 	}
 }
 
 void initExt2SpecialCases()
 {
 	mappingTableExt2Special[16] = VK_PRIOR;
-
 	mappingTableExt2Special[17] = VK_BACK;
 	mappingTableExt2Special[18] = VK_UP;
 	mappingTableExt2Special[19] = VK_DELETE;
@@ -185,13 +182,13 @@ void initLayout()
 	// slash key is special: it has the same scan code in the main block and the numpad
 	wcscpy(numpadSlashKey, L"//÷∕⌀∣");
 
-	TCHAR *source = L"abcdefghijklmnopqrstuvwxyzäöüß.,";
-	TCHAR *charsLevel1 = L"ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜẞ:;";
-	mapLevels_2_5_6(mappingTable[1], charsLevel1, source);
-	TCHAR *charsLevel4 = L"αβχδεφγψιθκλμνοπϕρστuvωξυζηϵüςϑϱ";
-	mapLevels_2_5_6(mappingTable[4], charsLevel4, source);
-	TCHAR *charsLevel5 = L"∀⇐ℂΔ∃ΦΓΨ∫Θ⨯Λ⇔ℕ∈ΠℚℝΣ∂⊂√ΩΞ∇ℤℵ∩∪∘↦⇒";
-	mapLevels_2_5_6(mappingTable[5], charsLevel5, source);
+	TCHAR *rel = L"abcdefghijklmnopqrstuvwxyzäöüß.,";
+	TCHAR *src1 = L"ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜẞ:;";
+	mapRelative(mappingTable[1], src1, rel);
+	TCHAR *src2 = L"αβχδεφγψιθκλμνοπϕρστuvωξυζηϵüςϑϱ";
+	mapRelative(mappingTable[4], src2, rel);
+	TCHAR *src3 = L"∀⇐ℂΔ∃ΦΓΨ∫Θ⨯Λ⇔ℕ∈ΠℚℝΣ∂⊂√ΩΞ∇ℤℵ∩∪∘↦⇒";
+	mapRelative(mappingTable[5], src3, rel);
 
 	// add number row and dead key in upper letter row
 	wcscpy(mappingTable[4] + 41, L"̉");
@@ -211,8 +208,6 @@ void initLayout()
 	mappingTable[5][83] = 0x02dd;				   // double acute accent (not sure about this one)
 	wcscpy(mappingTable[5] + 55, L"⊗");			   // *-key on numeric keypad
 	wcscpy(mappingTable[5] + 69, L"≡");			   // num-lock-key
-
-	mappingTable[1][8] = 0x20AC; // €
 
 	// ext2 special cases
 	initExt2SpecialCases();
@@ -614,9 +609,9 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 			}
 		}
 		else
-		{ // scanCodeExt1L (CapsLock)
+		{
 			mods.ext1l = false;
-			if (capsLockKeyAsEscape && sendEscape)
+			if (ext1LAsEscape && sendEscape)
 			{
 				sendUp(VK_CAPITAL, 58, false);
 				sendDownUp(VK_ESCAPE, 1, true);
@@ -636,7 +631,7 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		else
 		{
 			mods.ext1l = true;
-			if (capsLockKeyAsEscape)
+			if (ext1LAsEscape)
 				sendEscape = true;
 		}
 	}
