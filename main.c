@@ -32,7 +32,7 @@ DWORD scanCodeExt2R = SCANCODE_ANY_ALT_KEY;
 bool capsLockAsShiftLock = false;
 bool swapLeftCtrlAndLeftAlt = false;
 bool swapLeftCtrlLeftAltAndLeftWin = false;
-bool ext1LAsEscape = true;
+bool capsLockKeyAsEscape = true;
 bool ext1RAsReturn = true;
 bool ext2LAsTab = true;
 
@@ -104,7 +104,9 @@ void mapRelative(TCHAR *dest, TCHAR *src, TCHAR *rel)
 	{
 		ptr = wcschr(rel, mappingTable[0][i]);
 		if (ptr != NULL && ptr < &rel[32])
+		{
 			dest[i] = src[ptr - rel];
+		}
 	}
 }
 
@@ -155,7 +157,7 @@ void initLayout()
 	mappingTable[1][69] = VK_TAB;					// NumLock key → tabulator
 
 	wcscpy(mappingTable[2] + 41, L"^");
-	wcscpy(mappingTable[2] + 2, L"¹²³›‹¢¥‚‘’—̊");
+	wcscpy(mappingTable[2] + 2, L"¡ºª¢€ħðþ‘’–×");
 	wcscpy(mappingTable[2] + 16, L"…_[]^!<>=&ſ̷");
 	wcscpy(mappingTable[2] + 30, L"\\/{}*?()-:@");
 	wcscpy(mappingTable[2] + 44, L"#$|~`+%\"';");
@@ -164,7 +166,7 @@ void initLayout()
 	wcscpy(mappingTable[2] + 69, L"=");				// num-lock-key
 
 	wcscpy(mappingTable[3] + 41, L"̇");
-	wcscpy(mappingTable[3] + 2, L"ªº№⋮·£¤0/*-¨");
+	wcscpy(mappingTable[3] + 2, L"¹²³£¥ĦÐÞ“”—÷");
 	wcscpy(mappingTable[3] + 21, L"¡789+−˝");
 	wcscpy(mappingTable[3] + 35, L"¿456,.");
 	wcscpy(mappingTable[3] + 49, L":123;");
@@ -496,12 +498,12 @@ void logKeyEvent(char *desc, KBDLLHOOKSTRUCT keyInfo)
 		keyName, shiftLockCapsLockInfo, ext2LockInfo, vkPacket);
 }
 
-boolean handleShiftKey(KBDLLHOOKSTRUCT keyInfo, WPARAM wparam, bool ignoreShiftCapsLock)
+void handleShiftKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp, bool ignoreShiftCapsLock)
 {
 	bool *pressedShift = keyInfo.vkCode == VK_RSHIFT ? &mods.rshift : &mods.lshift;
 	bool *otherShift = keyInfo.vkCode == VK_RSHIFT ? &mods.lshift : &mods.rshift;
 
-	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
+	if (isKeyUp)
 	{
 		*pressedShift = false;
 
@@ -511,16 +513,12 @@ boolean handleShiftKey(KBDLLHOOKSTRUCT keyInfo, WPARAM wparam, bool ignoreShiftC
 			toggleShiftCapsLock();
 		}
 		sendUp(keyInfo.vkCode, keyInfo.scanCode, false);
-		return false;
 	}
-	else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
+	else
 	{
 		*pressedShift = true;
 		sendDown(keyInfo.vkCode, keyInfo.scanCode, false);
-		return false;
 	}
-
-	return true;
 }
 
 /**
@@ -609,9 +607,9 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 			}
 		}
 		else
-		{
+		{ // scanCodeExt1L (CapsLock)
 			mods.ext1l = false;
-			if (ext1LAsEscape && sendEscape)
+			if (capsLockKeyAsEscape && sendEscape)
 			{
 				sendUp(VK_CAPITAL, 58, false);
 				sendDownUp(VK_ESCAPE, 1, true);
@@ -631,7 +629,7 @@ void handleExt1Key(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		else
 		{
 			mods.ext1l = true;
-			if (ext1LAsEscape)
+			if (capsLockKeyAsEscape)
 				sendEscape = true;
 		}
 	}
@@ -728,6 +726,7 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		{
 			key = mappingTable[level][keyInfo.scanCode];
 		}
+		
 		if (mods.capsLock && (level == 0 || level == 1) && isLetter(key))
 		{
 			key = mappingTable[level == 0 ? 1 : 0][keyInfo.scanCode];
@@ -764,9 +763,17 @@ __declspec(dllexport)
 
 	if (code == HC_ACTION && isShift(keyInfo))
 	{
-		bool continueExecution = handleShiftKey(keyInfo, wparam, bypassMode);
-		if (!continueExecution)
+		if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
+		{
+			handleShiftKey(keyInfo, true, bypassMode);
+		}
+		else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
+		{
+			handleShiftKey(keyInfo, false, bypassMode);
+		}
+		else {
 			return -1;
+		}
 	}
 
 	// Shift + Pause
