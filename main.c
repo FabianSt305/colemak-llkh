@@ -327,7 +327,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 27:
 			sendChar(L'̃', keyInfo); // perispomene (Tilde)
 			return true;
-		case 41:
+		//case 41:
 			sendChar(L'̌', keyInfo); // caron, wedge, háček (Hatschek)
 			return true;
 		default:
@@ -340,7 +340,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 13:
 			sendChar(L'̊', keyInfo); // overring
 			return true;
-		case 20:
+		//case 20:
 			sendChar(L'^', keyInfo);
 			commitDeadKey(keyInfo);
 			return true;
@@ -747,9 +747,11 @@ __declspec(dllexport)
 	LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
 {
 	KBDLLHOOKSTRUCT keyInfo;
+	if (code != HC_ACTION) {
+		return CallNextHookEx(NULL, code, wparam, lparam);
+	}
 
-	if (
-		code == HC_ACTION && (wparam == WM_SYSKEYUP || wparam == WM_KEYUP || wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN))
+	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP || wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
 	{
 		keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
 
@@ -761,7 +763,7 @@ __declspec(dllexport)
 		}
 	}
 
-	if (code == HC_ACTION && isShift(keyInfo))
+	if (isShift(keyInfo))
 	{
 		if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
 		{
@@ -778,7 +780,7 @@ __declspec(dllexport)
 	}
 
 	// Shift + Pause
-	if (code == HC_ACTION && wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && (mods.lshift || mods.rshift))
+	if (wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && (mods.lshift || mods.rshift))
 	{
 		toggleBypassMode();
 		return -1;
@@ -786,14 +788,14 @@ __declspec(dllexport)
 
 	if (bypassMode)
 	{
-		if (code == HC_ACTION && keyInfo.vkCode == VK_CAPITAL && !(keyInfo.flags & LLKHF_UP))
+		if (keyInfo.vkCode == VK_CAPITAL && !(keyInfo.flags & LLKHF_UP))
 		{
 			toggleShiftCapsLock();
 		}
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
 
-	if (code == HC_ACTION && (wparam == WM_SYSKEYUP || wparam == WM_KEYUP))
+	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
 	{
 		logKeyEvent("key up", keyInfo);
 
@@ -801,7 +803,7 @@ __declspec(dllexport)
 		if (!callNext)
 			return -1;
 	}
-	else if (code == HC_ACTION && (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN))
+	else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
 	{
 		printf("\n");
 		logKeyEvent("key down", keyInfo);
