@@ -327,7 +327,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 27:
 			sendChar(L'̃', keyInfo); // perispomene (Tilde)
 			return true;
-		//case 41:
+			//case 41:
 			sendChar(L'̌', keyInfo); // caron, wedge, háček (Hatschek)
 			return true;
 		default:
@@ -340,7 +340,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 13:
 			sendChar(L'̊', keyInfo); // overring
 			return true;
-		//case 20:
+			//case 20:
 			sendChar(L'^', keyInfo);
 			commitDeadKey(keyInfo);
 			return true;
@@ -700,54 +700,45 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 		handleExt2Key(keyInfo, isKeyUp);
 		return false;
 	}
-	else if ((keyInfo.flags & LLKHF_EXTENDED) && keyInfo.scanCode != 53)
-	{
-		// handle numpad slash key (scanCode=53 + extended bit) later
-		return true;
-	}
 	else if (handleSpecialCases(keyInfo))
 	{
 		return false;
 	}
 	else if (level == 0 && keyInfo.vkCode >= 0x30 && keyInfo.vkCode <= 0x39)
 	{
-		// numbers 0 to 9 -> don't remap
+		return true;
+	}
+
+	TCHAR key;
+	if (keyInfo.flags & LLKHF_EXTENDED)
+	{
+		if (keyInfo.scanCode != 53)
+			return true;
+
+		// slash key ("/") on numpad
+		key = numpadSlashKey[level];
+		keyInfo.flags = 0;
 	}
 	else
 	{
-		TCHAR key;
-		if ((keyInfo.flags & LLKHF_EXTENDED) && keyInfo.scanCode == 53)
-		{
-			// slash key ("/") on numpad
-			key = numpadSlashKey[level];
-			keyInfo.flags = 0;
-		}
-		else
-		{
-			key = mappingTable[level][keyInfo.scanCode];
-		}
-
-		if (mods.capsLock && (level == 0 || level == 1) && isLetter(key))
-		{
-			key = mappingTable[level == 0 ? 1 : 0][keyInfo.scanCode];
-		}
-		if (key != 0 && (keyInfo.flags & LLKHF_INJECTED) == 0)
-		{
-			int character = MapVirtualKeyA(keyInfo.vkCode, MAPVK_VK_TO_CHAR);
-			printf("%-13s | sc:%03d %c->%c [0x%04X] (level %u)\n", " mapped", keyInfo.scanCode, character, key, key, level);
-			sendChar(key, keyInfo);
-			return false;
-		}
+		key = mappingTable[level][keyInfo.scanCode];
+		if (key == 0)
+			return true;
+		if (mods.capsLock && (level == 0 || level == 1 || level == 4 || level == 5) && isLetter(key))
+			key = mappingTable[level ^ 1][keyInfo.scanCode];
 	}
-
-	return true;
+	int character = MapVirtualKeyA(keyInfo.vkCode, MAPVK_VK_TO_CHAR);
+	printf("%-13s | sc:%03d %c->%c [0x%04X] (level %u)\n", " mapped", keyInfo.scanCode, character, key, key, level);
+	sendChar(key, keyInfo);
+	return false;
 }
 
 __declspec(dllexport)
 	LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
 {
 	KBDLLHOOKSTRUCT keyInfo;
-	if (code != HC_ACTION) {
+	if (code != HC_ACTION)
+	{
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
 
@@ -769,10 +760,7 @@ __declspec(dllexport)
 
 	if (wparam != WM_SYSKEYUP && wparam != WM_KEYUP && wparam != WM_SYSKEYDOWN && wparam != WM_KEYDOWN)
 	{
-		if (isShift(keyInfo)) // ?
-			return -1;
-		else
-			return CallNextHookEx(NULL, code, wparam, lparam);
+		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
 
 	keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
@@ -798,7 +786,7 @@ __declspec(dllexport)
 	{
 		printf("\n");
 		logKeyEvent("key down", keyInfo);
-		
+
 		sendEscape = false;
 		sendReturn = false;
 		sendTab = false;
