@@ -51,12 +51,13 @@ unsigned getLevel()
 {
 	unsigned level = 0;
 
-	if ((mods.lshift || mods.rshift) ^ mods.shiftLock)
-		level = 1;
 	if ((mods.ext1l || mods.ext1r) ^ mods.ext1Lock)
-		level = (level == 1) ? 4 : 2;
+		level = 2;
 	if ((mods.ext2l || mods.ext2r) ^ mods.ext2Lock)
-		level = (level == 2) ? 5 : 3;
+		level = (level == 2) ? 4 : 3;
+
+	if (((mods.lshift || mods.rshift) ^ mods.shiftLock) && (level == 0 || level == 4))
+		level += 1;
 
 	return level;
 }
