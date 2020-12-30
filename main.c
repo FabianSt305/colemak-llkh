@@ -147,7 +147,7 @@ void initExt2SpecialCases()
 void initLayout()
 {
 	// same for all layouts
-	wcscpy(mappingTable[0] + 2, L"1234567890-`");
+	wcscpy(mappingTable[0] + 2, L"1234567890-=");
 	wcscpy(mappingTable[0] + 71, L"789-456+1230.");
 	mappingTable[0][69] = VK_TAB; // NumLock key → tabulator
 
@@ -751,34 +751,6 @@ __declspec(dllexport)
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
 
-	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP || wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
-	{
-		keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
-
-		if (keyInfo.flags & LLKHF_INJECTED)
-		{
-			// process injected events like normal, because most probably we are injecting them
-			logKeyEvent((keyInfo.flags & LLKHF_UP) ? "injected up" : "injected down", keyInfo);
-			return CallNextHookEx(NULL, code, wparam, lparam);
-		}
-	}
-
-	if (isShift(keyInfo))
-	{
-		if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
-		{
-			handleShiftKey(keyInfo, true, bypassMode);
-		}
-		else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
-		{
-			handleShiftKey(keyInfo, false, bypassMode);
-		}
-		else
-		{
-			return -1;
-		}
-	}
-
 	// Shift + Pause
 	if (wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && (mods.lshift || mods.rshift))
 	{
@@ -795,27 +767,46 @@ __declspec(dllexport)
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
 
-	if (wparam == WM_SYSKEYUP || wparam == WM_KEYUP)
+	if (wparam != WM_SYSKEYUP && wparam != WM_KEYUP && wparam != WM_SYSKEYDOWN && wparam != WM_KEYDOWN)
+	{
+		if (isShift(keyInfo)) // ?
+			return -1;
+		else
+			return CallNextHookEx(NULL, code, wparam, lparam);
+	}
+
+	keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
+
+	if (keyInfo.flags & LLKHF_INJECTED)
+	{
+		// process injected events like normal, because most probably we are injecting them
+		logKeyEvent((keyInfo.flags & LLKHF_UP) ? "injected up" : "injected down", keyInfo);
+		return CallNextHookEx(NULL, code, wparam, lparam);
+	}
+
+	bool isKeyUp = (wparam == WM_SYSKEYUP || wparam == WM_KEYUP);
+	if (isShift(keyInfo))
+	{
+		handleShiftKey(keyInfo, isKeyUp, bypassMode);
+	}
+
+	if (isKeyUp)
 	{
 		logKeyEvent("key up", keyInfo);
-
-		bool callNext = updateStatesAndWriteKey(keyInfo, true);
-		if (!callNext)
-			return -1;
 	}
-	else if (wparam == WM_SYSKEYDOWN || wparam == WM_KEYDOWN)
+	else
 	{
 		printf("\n");
 		logKeyEvent("key down", keyInfo);
-
+		
 		sendEscape = false;
 		sendReturn = false;
 		sendTab = false;
-
-		bool callNext = updateStatesAndWriteKey(keyInfo, false);
-		if (!callNext)
-			return -1;
 	}
+
+	bool callNext = updateStatesAndWriteKey(keyInfo, isKeyUp);
+	if (!callNext)
+		return -1;
 
 	return CallNextHookEx(NULL, code, wparam, lparam);
 }
