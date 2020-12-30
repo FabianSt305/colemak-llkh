@@ -735,13 +735,14 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 }
 
 __declspec(dllexport)
-	LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
 {
-	KBDLLHOOKSTRUCT keyInfo;
 	if (code != HC_ACTION)
 	{
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
+
+	KBDLLHOOKSTRUCT keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
 
 	// Shift + Pause
 	if (wparam == WM_KEYDOWN && keyInfo.vkCode == VK_PAUSE && (mods.lshift || mods.rshift))
@@ -763,8 +764,6 @@ __declspec(dllexport)
 	{
 		return CallNextHookEx(NULL, code, wparam, lparam);
 	}
-
-	keyInfo = *((KBDLLHOOKSTRUCT *)lparam);
 
 	if (keyInfo.flags & LLKHF_INJECTED)
 	{
