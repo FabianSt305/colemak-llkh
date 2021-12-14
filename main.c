@@ -35,7 +35,6 @@ bool swapLeftCtrlLeftAltAndLeftWin = false;
 bool capsLockKeyAsEscape = true;
 bool ext1RAsReturn = true;
 bool ext2LAsTab = true;
-
 bool bypassMode = false;
 
 bool sendEscape = false;
@@ -289,25 +288,31 @@ void sendChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 			alt = false;
 		}
 
-		if (altgr)
-			sendDown(VK_RMENU, 56, false);
-		if (ctrl)
-			sendDown(VK_CONTROL, 29, false);
-		if (alt)
-			sendDown(VK_MENU, 56, false); // ALT
-		if (shift)
-			sendDown(VK_SHIFT, 42, false);
+		if (!(keyInfo.flags & LLKHF_UP))
+		{
+			if (altgr)
+				sendDown(VK_RMENU, 56, false);
+			if (ctrl)
+				sendDown(VK_CONTROL, 29, false);
+			if (alt)
+				sendDown(VK_MENU, 56, false); // ALT
+			if (shift)
+				sendDown(VK_SHIFT, 42, false);
+		}
 
 		keybd_event(keyInfo.vkCode, keyInfo.scanCode, dwFlagsFromKeyInfo(keyInfo), keyInfo.dwExtraInfo);
 
-		if (altgr)
-			sendUp(VK_RMENU, 56, false);
-		if (ctrl)
-			sendUp(VK_CONTROL, 29, false);
-		if (alt)
-			sendUp(VK_MENU, 56, false); // ALT
-		if (shift)
-			sendUp(VK_SHIFT, 42, false);
+		if (!(keyInfo.flags & LLKHF_UP))
+		{
+			if (altgr)
+				sendUp(VK_RMENU, 56, false);
+			if (ctrl)
+				sendUp(VK_CONTROL, 29, false);
+			if (alt)
+				sendUp(VK_MENU, 56, false); // ALT
+			if (shift)
+				sendUp(VK_SHIFT, 42, false);
+		}
 	}
 }
 
@@ -328,7 +333,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 27:
 			sendChar(L'̃', keyInfo); // perispomene (Tilde)
 			return true;
-			//case 41:
+			// case 41:
 			sendChar(L'̌', keyInfo); // caron, wedge, háček (Hatschek)
 			return true;
 		default:
@@ -341,7 +346,7 @@ bool handleSpecialCases(KBDLLHOOKSTRUCT keyInfo)
 		case 13:
 			sendChar(L'̊', keyInfo); // overring
 			return true;
-			//case 20:
+			// case 20:
 			sendChar(L'^', keyInfo);
 			commitDeadKey(keyInfo);
 			return true;
@@ -735,7 +740,7 @@ bool updateStatesAndWriteKey(KBDLLHOOKSTRUCT keyInfo, bool isKeyUp)
 }
 
 __declspec(dllexport)
-LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
+	LRESULT CALLBACK keyevent(int code, WPARAM wparam, LPARAM lparam)
 {
 	if (code != HC_ACTION)
 	{
