@@ -291,7 +291,7 @@ void sendChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 		if (!(keyInfo.flags & LLKHF_UP))
 		{
 			if (altgr)
-				sendDown(VK_RMENU, 56, false);
+				sendDown(VK_RMENU, 56, true);
 			if (ctrl)
 				sendDown(VK_CONTROL, 29, false);
 			if (alt)
@@ -305,7 +305,7 @@ void sendChar(TCHAR key, KBDLLHOOKSTRUCT keyInfo)
 		if (!(keyInfo.flags & LLKHF_UP))
 		{
 			if (altgr)
-				sendUp(VK_RMENU, 56, false);
+				sendUp(VK_RMENU, 56, true);
 			if (ctrl)
 				sendUp(VK_CONTROL, 29, false);
 			if (alt)
